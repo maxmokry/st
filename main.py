@@ -1,11 +1,16 @@
 # Настройки
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 from sqlalchemy.orm.exc import *
+from sqlalchemy.sql import text
 
 import my_db_schema as sch
 from blib import unserialize, verify_pin, send_pin
 
 
+import logging
+
+# add filemode="w" to overwrite
+logging.basicConfig(level=logging.INFO)
 
 
 
@@ -15,7 +20,6 @@ from blib import unserialize, verify_pin, send_pin
 
 updater = Updater(token='616238756:AAF50TX6cvvjEwoX7WWXzJxfZOPkGcxfXz8') # Токен API к Telegram
 dispatcher = updater.dispatcher
-
 chats = dict()
 #
 # Обработка команд
@@ -37,6 +41,7 @@ def textMessage(bot, update):
     if chat_id not in chats:
         startCommand(bot, update)
         return
+    command = update.message.text.lower()
     if 'login' not in chats[chat_id]:
         print(chat_id)
         print(update)
@@ -59,8 +64,10 @@ def textMessage(bot, update):
             chats[chat_id]['mixed'] = mixed
             response = 'Введите код подтверждения'
             bot.send_message(chat_id=chat_id, text=response)
+            return
         except NoResultFound:
             bot.send_message(chat_id=chat_id, text='Ошибка в логине пользователя')
+            return
     elif 'auth' not in chats[chat_id]:
         res = verify_pin(update.message.text,
                          chats[chat_id]['pin'],
@@ -68,12 +75,25 @@ def textMessage(bot, update):
         if res is True:
             chats[chat_id]['auth'] = True
             bot.send_message(chat_id=chat_id, text='Вы успешно авторизованы')
+            return
         else:
             del chats[chat_id]
             bot.send_message(chat_id=chat_id, text='неверный пароль')
-    command = update.message.text.lower()
+            return
+
     if command == 'баланс':
-        pass
+        s = text('select customers_account, get_blocked_money(customers_id) from tbl_customers where customers_id = {}'
+                 .format(chats[chat_id]['customerid']))
+        print(sch.conn)
+        print(s)
+        b = sch.conn.execute(s)
+        print(sch.conn)
+        bal = b.first()
+        print(bal)
+        bb = float(bal.customers_account) - float(bal.get_blocked_money)
+        print(bb)
+        bot.send_message(chat_id=chat_id, text='Ваш баланс: {:.2f} USD'.format(bb))
+        return
     elif command == 'выход' or command == 'exit':
         del chats[chat_id]
         bot.send_message(chat_id=chat_id, text='Вы успешно вышли из системы')
