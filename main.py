@@ -4,7 +4,7 @@ from sqlalchemy.orm.exc import *
 from sqlalchemy.sql import text
 
 import my_db_schema as sch
-from blib import unserialize, verify_pin, send_pin
+from blib import unserialize, verify_pin, send_pin, restore_dict, save_dict
 import conf
 
 
@@ -13,6 +13,8 @@ import logging
 # add filemode="w" to overwrite
 logging.basicConfig(level=logging.INFO)
 
+# chats = DictAutosave('chats.pkl')
+chats = restore_dict('chats.pkl')
 
 
 
@@ -21,23 +23,24 @@ logging.basicConfig(level=logging.INFO)
 
 updater = Updater(token=conf.TELEGRAM_TOKEN) # Токен API к Telegram
 dispatcher = updater.dispatcher
-chats = dict()
+
 #
 # Обработка команд
 def startCommand(bot, update):
     chats[update.message.chat_id] = {}
     text = '''Вас приветствует Seller-Online!
         
-        Для того, чтобы начать работу введите имя пользователя.
+Для того, чтобы начать работу введите имя пользователя.
         
-        Вам не нужно вводить тут пароль. 
-        Авторизация осуществляется через дополнительный метод, который вы выбрали на сайте. 
-        Если дополнительная авторизация на сайте не включена, то услуши бота будут недоступны! 
-    '''
+Вам не нужно вводить тут пароль. 
+Авторизация осуществляется через дополнительный метод, который вы выбрали на сайте. 
+Если дополнительная авторизация на сайте не включена, то услуги бота будут недоступны! 
+'''
     bot.send_message(chat_id=update.message.chat_id, text=text)
 
 
 def textMessage(bot, update):
+    print(update)
     chat_id = update.message.chat_id
     if chat_id not in chats:
         startCommand(bot, update)
@@ -63,6 +66,7 @@ def textMessage(bot, update):
             chats[chat_id]['pin'] = pin
             chats[chat_id]['customerid'] = customer.customers_id
             chats[chat_id]['mixed'] = mixed
+            save_dict(chats, 'chats.pkl')
             response = 'Введите код подтверждения'
             bot.send_message(chat_id=chat_id, text=response)
             return
@@ -75,10 +79,12 @@ def textMessage(bot, update):
                          chats[chat_id]['mixed'])
         if res is True:
             chats[chat_id]['auth'] = True
+            save_dict(chats, 'chats.pkl')
             bot.send_message(chat_id=chat_id, text='Вы успешно авторизованы')
             return
         else:
             del chats[chat_id]
+            save_dict(chats, 'chats.pkl')
             bot.send_message(chat_id=chat_id, text='неверный пароль')
             return
 
@@ -97,12 +103,13 @@ def textMessage(bot, update):
         return
     elif command == 'выход' or command == 'exit':
         del chats[chat_id]
+        save_dict(chats, 'chats.pkl')
         bot.send_message(chat_id=chat_id, text='Вы успешно вышли из системы')
         return
     else:
-        help_text = '''*Неизвестная команда*
+        help_text = '''**Неизвестная команда**
         
-        _Команды бота:_
+        __Команды бота:__
         Баланс - получить баланс
         Выход - выйти из системы
         '''
