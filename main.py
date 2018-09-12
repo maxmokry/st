@@ -5,6 +5,7 @@ from sqlalchemy.sql import text
 
 import my_db_schema as sch
 from blib import unserialize, verify_pin, send_pin
+import conf
 
 
 import logging
@@ -18,7 +19,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 
-updater = Updater(token='616238756:AAF50TX6cvvjEwoX7WWXzJxfZOPkGcxfXz8') # Токен API к Telegram
+updater = Updater(token=conf.TELEGRAM_TOKEN) # Токен API к Telegram
 dispatcher = updater.dispatcher
 chats = dict()
 #
